@@ -66,9 +66,9 @@ public class HTMLParserService {
 
             // Get terms
             Document doc = Jsoup.connect(UH_ROOT).data("i", instID).get();
-            Elements institutions = doc.select("ul.terms").select("li");
+            Elements terms = doc.select("ul.terms").select("li");
 
-            for(Element item : institutions){
+            for(Element item : terms){
                 // Extract term ID from url
                 item = item.selectFirst("a");
                 String termID = "";
@@ -86,4 +86,50 @@ public class HTMLParserService {
         return ids;
     }
 
+    public List<Identifier> parseSubjects(String instID, String termID) {
+        List<Identifier> ids = new ArrayList<>();
+        try{
+            Document doc = Jsoup.connect(UH_ROOT)
+                    .data("i", instID)
+                    .data("t", termID)
+                    .get();
+            Elements leftSubjects = doc
+                    .select("div.leftcolumn")
+                    .select("ul.subjects")
+                    .select("li");
+
+            Elements rightSubjects = doc
+                    .select("div.rightcolumn")
+                    .select("ul.subjects")
+                    .select("li");
+
+            ids.addAll(parseSubjects(leftSubjects));
+            ids.addAll(parseSubjects(rightSubjects));
+
+        } catch (IOException ignored){
+
+        }
+
+        return ids;
+    }
+
+    private List<Identifier> parseSubjects(Elements subjects){
+        List<Identifier> ids = new ArrayList<>();
+        Pattern pattern = Pattern.compile("s=(\\w*)");
+
+        for(Element item : subjects){
+            // Extract term ID from url
+            item = item.selectFirst("a");
+            String termID = "";
+            Matcher matcher = pattern.matcher( item.attr("href"));
+
+            if (matcher.find())
+                termID = matcher.group(1);
+
+            ids.add(new Identifier(termID, item.text()));
+
+        }
+
+        return ids;
+    }
 }

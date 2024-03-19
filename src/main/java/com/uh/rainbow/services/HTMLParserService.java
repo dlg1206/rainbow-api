@@ -37,16 +37,18 @@ public class HTMLParserService {
      * Parse the list of UH institutions
      *
      * @return List of institution ids and names
-     * @throws IOException Failed to access url
      */
-    public List<Identifier> parseInstitutions() throws IOException {
+    public List<Identifier> parseInstitutions() {
         List<Identifier> ids = new ArrayList<>();
+        try{
+            Document doc = Jsoup.connect(UH_ROOT).get();
+            Elements institutions = doc.select("ul.institutions").select("li");
 
-        Document doc = Jsoup.connect(UH_ROOT).get();
-        Elements institutions = doc.select("ul.institutions").select("li");
+            for(Element item : institutions)
+                ids.add(new Identifier(item.className(), item.text()));
+        } catch (IOException ignored){
 
-        for(Element item : institutions)
-            ids.add(new Identifier(item.className(), item.text()));
+        }
 
         return ids;
     }
@@ -56,28 +58,30 @@ public class HTMLParserService {
      *
      * @param instID Institution ID
      * @return List of term ids and names
-     * @throws IOException Failed to access url
      */
-    public List<Identifier> parseTerms(String instID) throws IOException {
+    public List<Identifier> parseTerms(String instID) {
         List<Identifier> ids = new ArrayList<>();
-        Pattern pattern = Pattern.compile("t=([0-9]*)");
+        try{
+            Pattern pattern = Pattern.compile("t=([0-9]*)");
 
-        // Get terms
-        Document doc = Jsoup.connect(UH_ROOT).data("i", instID).get();
-        Elements institutions = doc.select("ul.terms").select("li");
+            // Get terms
+            Document doc = Jsoup.connect(UH_ROOT).data("i", instID).get();
+            Elements institutions = doc.select("ul.terms").select("li");
 
-        for(Element item : institutions){
-            // Extract term ID from url
-            item = item.selectFirst("a");
-            String termID = "";
-            Matcher matcher = pattern.matcher( item.attr("href"));
+            for(Element item : institutions){
+                // Extract term ID from url
+                item = item.selectFirst("a");
+                String termID = "";
+                Matcher matcher = pattern.matcher( item.attr("href"));
 
-            if (matcher.find())
-                termID = matcher.group(1);
+                if (matcher.find())
+                    termID = matcher.group(1);
 
-            ids.add(new Identifier(termID, item.text()));
+                ids.add(new Identifier(termID, item.text()));
+            }
+        } catch (IOException ignored){
+
         }
-
 
         return ids;
     }

@@ -64,6 +64,13 @@ public class HTMLParserService {
 
     private static final String UH_ROOT = "https://www.sis.hawaii.edu/uhdad/avail.classes";
 
+    /**
+     * Process a list of li elements with href
+     *
+     * @param elements List of elements to process
+     * @param upe URL Param extractor to use
+     * @return List of extracted ids and names
+     */
     private List<Identifier> processElements(Elements elements, URLParamExtractor upe){
         List<Identifier> ids = new ArrayList<>();
         // Process each element

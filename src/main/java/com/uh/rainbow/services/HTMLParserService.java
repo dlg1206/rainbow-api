@@ -31,7 +31,52 @@ public class HTMLParserService {
     public record Identifier(String id, String name) {
     }
 
+    /**
+     * Regex parser that extracts params from a url
+     */
+    private static class URLParamExtractor{
+
+        private final Pattern regex;
+
+        /**
+         * Create new extractor
+         *
+         * @param regex Regex to use to extract from url
+         */
+        public URLParamExtractor(String regex){
+            this.regex = Pattern.compile(regex);
+        }
+
+        /**
+         * Use the regex to extract the param
+         *
+         * @param url URL to extract param from
+         * @return Value of param
+         */
+        public String extract(String url){
+            Matcher matcher = this.regex.matcher(url);
+            if (matcher.find())
+                return matcher.group(1);
+            return "";
+        }
+
+    }
+
     private static final String UH_ROOT = "https://www.sis.hawaii.edu/uhdad/avail.classes";
+
+    private List<Identifier> processElements(Elements elements, URLParamExtractor upe){
+        List<Identifier> ids = new ArrayList<>();
+        // Process each element
+        for(Element item : elements){
+            // Extract ID from url
+            item = item.selectFirst("a");
+            String termID = upe.extract(item.attr("href"));
+
+            ids.add(new Identifier(termID, item.text()));
+        }
+
+        return ids;
+    }
 
     /**
      * Parse the list of UH institutions
@@ -41,11 +86,14 @@ public class HTMLParserService {
     public List<Identifier> parseInstitutions() {
         List<Identifier> ids = new ArrayList<>();
         try{
+            // Get list
             Document doc = Jsoup.connect(UH_ROOT).get();
             Elements institutions = doc.select("ul.institutions").select("li");
 
+            // Convert to key pair
             for(Element item : institutions)
                 ids.add(new Identifier(item.className(), item.text()));
+
         } catch (IOException ignored){
 
         }
@@ -62,23 +110,12 @@ public class HTMLParserService {
     public List<Identifier> parseTerms(String instID) {
         List<Identifier> ids = new ArrayList<>();
         try{
-            Pattern pattern = Pattern.compile("t=([0-9]*)");
-
             // Get terms
             Document doc = Jsoup.connect(UH_ROOT).data("i", instID).get();
             Elements terms = doc.select("ul.terms").select("li");
 
-            for(Element item : terms){
-                // Extract term ID from url
-                item = item.selectFirst("a");
-                String termID = "";
-                Matcher matcher = pattern.matcher( item.attr("href"));
+            ids.addAll(processElements(terms, new URLParamExtractor("t=([0-9]*)")));
 
-                if (matcher.find())
-                    termID = matcher.group(1);
-
-                ids.add(new Identifier(termID, item.text()));
-            }
         } catch (IOException ignored){
 
         }
@@ -86,13 +123,22 @@ public class HTMLParserService {
         return ids;
     }
 
+    /**
+     * Parse the list of available subjects for an institution and term
+     *
+     * @param instID Institution ID
+     * @param termID term ID
+     * @return List of subject ids and names
+     */
     public List<Identifier> parseSubjects(String instID, String termID) {
         List<Identifier> ids = new ArrayList<>();
         try{
+            // Get each col
             Document doc = Jsoup.connect(UH_ROOT)
                     .data("i", instID)
                     .data("t", termID)
                     .get();
+
             Elements leftSubjects = doc
                     .select("div.leftcolumn")
                     .select("ul.subjects")
@@ -103,30 +149,12 @@ public class HTMLParserService {
                     .select("ul.subjects")
                     .select("li");
 
-            ids.addAll(parseSubjects(leftSubjects));
-            ids.addAll(parseSubjects(rightSubjects));
+            // Process each list
+            URLParamExtractor upe = new URLParamExtractor("s=(\\w*)");
+            ids.addAll(processElements(leftSubjects, upe));
+            ids.addAll(processElements(rightSubjects, upe));
 
         } catch (IOException ignored){
-
-        }
-
-        return ids;
-    }
-
-    private List<Identifier> parseSubjects(Elements subjects){
-        List<Identifier> ids = new ArrayList<>();
-        Pattern pattern = Pattern.compile("s=(\\w*)");
-
-        for(Element item : subjects){
-            // Extract term ID from url
-            item = item.selectFirst("a");
-            String termID = "";
-            Matcher matcher = pattern.matcher( item.attr("href"));
-
-            if (matcher.find())
-                termID = matcher.group(1);
-
-            ids.add(new Identifier(termID, item.text()));
 
         }
 
